@@ -13,6 +13,8 @@ jobs:
       - name: Get PR labels
         id: pr-labels
         uses: irby/get-labels-on-push@v1.0.1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       # GITHUB_PR_LABEL_RELEASE_MASTER was set by pr-labels action
       - run: |
