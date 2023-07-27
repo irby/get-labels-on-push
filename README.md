@@ -29,5 +29,7 @@ jobs:
 
 ## Code Based on the Following
 
-[joerick/pr-labels-action](https://github.com/joerick/pr-labels-action)
-[shioyang/check-pr-labels-on-push-action](https://github.com/shioyang/check-pr-labels-on-push-action)
+I created this GitHub Action to combine the behaviors of these two different GitHub Actions. I am in great gratitude to these projects for forming the basis of this project.
+
+- [joerick/pr-labels-action](https://github.com/joerick/pr-labels-action)
+- [shioyang/check-pr-labels-on-push-action](https://github.com/shioyang/check-pr-labels-on-push-action)
