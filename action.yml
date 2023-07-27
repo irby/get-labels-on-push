@@ -1,0 +1,22 @@
+name: 'Get Labels on Push'
+author: irby
+description: 'This action will convert all labels from the latest PR into a dictionary to be read by other steps in GitHub Actions pipeline.'
+inputs:
+  github-token: # id of input
+    description: 'The repository token, i.e. secrets.GITHUB_TOKEN'
+    required: true
+outputs:
+  labels:
+    description: |
+      The labels on this PR. A string containing tag identifiers surrounded
+      with spaces for easy use with `contains`.
+  labels-object:
+    description: |
+      The labels on this PR. A dictionary containing `true` where a label
+      exists
+runs:
+  using: 'node16'
+  main: 'dist/index.js'
+branding:
+  icon: 'tag'
+  color: 'green'
