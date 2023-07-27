@@ -33,6 +33,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.appendLabelsObject = exports.nameToEnvironmentVariableName = exports.nameToIdentifier = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const github = __importStar(__nccwpck_require__(5438));
 const deburr_1 = __importDefault(__nccwpck_require__(833));
@@ -48,7 +49,7 @@ async function run() {
         const environmentVariable = nameToEnvironmentVariableName(label);
         core.exportVariable(environmentVariable, '1');
         core.info(`\nFound label ${label}. \n  Setting env var for remaining steps: ${environmentVariable}=1`);
-        labelsObject[identifier] = true;
+        appendLabelsObject(labelsObject, identifier);
     }
     const labelsString = ' ' + Object.keys(labelsObject).join(' ') + ' ';
     core.info(`\nAction output:\nlabels: ${JSON.stringify(labelsString)}\nlabels-object: ${JSON.stringify(labelsObject)}`);
@@ -77,6 +78,7 @@ function nameToIdentifier(name) {
         .replace(/-+/g, '-') // remove consecutive dashes
         .toLowerCase();
 }
+exports.nameToIdentifier = nameToIdentifier;
 function nameToEnvironmentVariableName(name) {
     return 'GITHUB_PR_LABEL_' + ((0, deburr_1.default)(name) // remove accents
         .replace(/['"“‘”’]+/gu, '') // remove quotes
@@ -84,6 +86,11 @@ function nameToEnvironmentVariableName(name) {
         .replace(/_+/g, '_') // remove consecutive underscores
         .toUpperCase());
 }
+exports.nameToEnvironmentVariableName = nameToEnvironmentVariableName;
+function appendLabelsObject(labelObject, identifier) {
+    labelObject[identifier] = true;
+}
+exports.appendLabelsObject = appendLabelsObject;
 run().catch((err) => {
     core.setFailed(`Action failed with error: ${err.message}`);
 });

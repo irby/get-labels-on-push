@@ -12,9 +12,11 @@ jobs:
         uses: actions/checkout@v2
       - name: Get PR labels
         id: pr-labels
-        uses: irby/get-labels-on-push@v1.0.0
+        uses: ./
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - run: |
           env | grep GITHUB_PR_LABEL || true
+      - run: |
+          echo ${{join(steps.pr-labels.outputs.*, '\n')}}
 

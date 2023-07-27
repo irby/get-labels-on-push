@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Get PR labels
         id: pr-labels
-        uses: irby/get-labels-on-push@v1.0.0
+        uses: irby/get-labels-on-push@v1.0.1
 
       # GITHUB_PR_LABEL_RELEASE_MASTER was set by pr-labels action
       - run: |
