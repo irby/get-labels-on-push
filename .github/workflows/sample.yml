@@ -13,5 +13,7 @@ jobs:
       - name: Get PR labels
         id: pr-labels
         uses: ./
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - run: |
           env | grep GITHUB_PR_LABEL || true
