@@ -1,32 +1,59 @@
 # PR Labels on Push
 
-A Github action that extracts labels from the most recent push and makes them available to other actions. Labels are available as step outputs and environment variables that you can use in later steps in your action.
+A GitHub Action that extracts labels from the pull request associated with a pushed commit and makes them available to other steps in your workflow. Labels are exposed as **step outputs** and **environment variables**, allowing you to conditionally run jobs or steps based on PR labels.
+
+This action is intended to be used with `push` events where the pushed commit is part of a pull request.
+
+---
 
 ## How do I use this?
 
-Perhaps you have a test that you only want to run when PR label `release:master` is set. Your workflow should look like this:
+Perhaps you have a test or release step that should only run when a PR label such as `release:master` is set. Your workflow might look like this:
 
 ```yaml
 jobs:
   test:
+    # Explicit permissions required for this action
+    permissions:
+      contents: read
+      pull-requests: read
+
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Get PR labels
         id: pr-labels
-        uses: irby/get-labels-on-push@v1.0.1
+        uses: irby/get-labels-on-push@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      # GITHUB_PR_LABEL_RELEASE_MASTER was set by pr-labels action
+      # Environment variables are created for each label
+      # Label names are normalized to uppercase and non-alphanumeric
+      # characters are replaced with underscores.
       - run: |
           if [ -n "$GITHUB_PR_LABEL_RELEASE_MASTER" ]; then
             echo "This is a release label!"
           fi
 
-      # or you can use the action output.
-      # For the label name, use lowercase kebab-case and surround with spaces
+      # Or use the action output.
+      # The labels output is a space-delimited string of lowercase
+      # kebab-case label names, surrounded by spaces.
       - run: |
           scripts/release-major.sh
         if: contains(steps.pr-labels.outputs.labels, ' release-major ')
+```
+
+### Previous Versions of GitHub Action
+
+You can reference or pin previous versions of this GitHub Action by referencing an existing [tag](https://github.com/irby/get-labels-on-push/tags).
+
+For example:
+
+```yaml
+  - name: Get PR labels
+        id: pr-labels
+        uses: irby/get-labels-on-push@v1.0.1
 ```
 
 ## Code Based on the Following
