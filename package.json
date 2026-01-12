@@ -16,7 +16,7 @@
     ]
   },
   "scripts": {
-    "build": "tsc && ncc build lib/index.js",
+    "build": "tsc && ncc build lib/main.js",
     "test": "jest"
   },
   "devDependencies": {
