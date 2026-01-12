@@ -3,7 +3,7 @@ import * as github from "@actions/github";
 import { GitHub } from "@actions/github/lib/utils";
 import _deburr from 'lodash/deburr';
 
-async function run() {
+export async function run() {
   core.debug("Start");
 
   const token = core.getInput("github-token", { required: true });
@@ -75,7 +75,3 @@ export function nameToEnvironmentVariableName(name: string) {
 export function appendLabelsObject(labelObject: {[k: string]: true}, identifier: string) {
     labelObject[identifier] = true;
 }
-
-run().catch((err) => {
-  core.setFailed(`Action failed with error: ${err.message}`);
-});

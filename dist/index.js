@@ -33,7 +33,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.appendLabelsObject = exports.nameToEnvironmentVariableName = exports.nameToIdentifier = void 0;
+exports.appendLabelsObject = exports.nameToEnvironmentVariableName = exports.nameToIdentifier = exports.run = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const github = __importStar(__nccwpck_require__(5438));
 const deburr_1 = __importDefault(__nccwpck_require__(833));
@@ -56,6 +56,7 @@ async function run() {
     core.setOutput('labels', labelsString);
     core.setOutput('labels-object', labelsObject);
 }
+exports.run = run;
 async function getPullRequestLabelNames(octokit) {
     const owner = github.context.repo.owner;
     const repo = github.context.repo.repo;
@@ -91,9 +92,6 @@ function appendLabelsObject(labelObject, identifier) {
     labelObject[identifier] = true;
 }
 exports.appendLabelsObject = appendLabelsObject;
-run().catch((err) => {
-    core.setFailed(`Action failed with error: ${err.message}`);
-});
 
 
 /***/ }),
