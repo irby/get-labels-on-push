@@ -54,7 +54,7 @@ async function getPullRequestLabelNames(
   return pr ? pr.labels.map((label) => label.name || "") : [];
 }
 
-export function nameToIdentifier(name: string) {
+function nameToIdentifier(name: string) {
     return name
         .replace(/['"“‘”’]+/gu, '')  // remove quotes
         .replace(/[^\p{Letter}\p{Number}]+/gu, '-')  // non alphanum to dashes
@@ -62,7 +62,7 @@ export function nameToIdentifier(name: string) {
         .toLowerCase()
 }
 
-export function nameToEnvironmentVariableName(name: string) {
+function nameToEnvironmentVariableName(name: string) {
     return 'GITHUB_PR_LABEL_' + (
         _deburr(name)  // remove accents
             .replace(/['"“‘”’]+/gu, '')  // remove quotes
@@ -72,6 +72,6 @@ export function nameToEnvironmentVariableName(name: string) {
     )
 }
 
-export function appendLabelsObject(labelObject: {[k: string]: true}, identifier: string) {
+function appendLabelsObject(labelObject: {[k: string]: true}, identifier: string) {
     labelObject[identifier] = true;
 }

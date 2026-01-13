@@ -33,7 +33,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.appendLabelsObject = exports.nameToEnvironmentVariableName = exports.nameToIdentifier = exports.run = void 0;
+exports.run = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const github = __importStar(__nccwpck_require__(5438));
 const deburr_1 = __importDefault(__nccwpck_require__(833));
@@ -79,7 +79,6 @@ function nameToIdentifier(name) {
         .replace(/-+/g, '-') // remove consecutive dashes
         .toLowerCase();
 }
-exports.nameToIdentifier = nameToIdentifier;
 function nameToEnvironmentVariableName(name) {
     return 'GITHUB_PR_LABEL_' + ((0, deburr_1.default)(name) // remove accents
         .replace(/['"“‘”’]+/gu, '') // remove quotes
@@ -87,11 +86,9 @@ function nameToEnvironmentVariableName(name) {
         .replace(/_+/g, '_') // remove consecutive underscores
         .toUpperCase());
 }
-exports.nameToEnvironmentVariableName = nameToEnvironmentVariableName;
 function appendLabelsObject(labelObject, identifier) {
     labelObject[identifier] = true;
 }
-exports.appendLabelsObject = appendLabelsObject;
 
 
 /***/ }),
