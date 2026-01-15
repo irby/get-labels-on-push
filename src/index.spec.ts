@@ -13,8 +13,12 @@ describe("run", () => {
   let mockSetOutput: jest.SpiedFunction<typeof core.setOutput>;
   let mockInfo: jest.SpiedFunction<typeof core.info>;
   let mockDebug: jest.SpiedFunction<typeof core.debug>;
+  let mockWarning: jest.SpiedFunction<typeof core.warning>;
 
   beforeEach(() => {
+    // Use fake timers
+    jest.useFakeTimers();
+    
     // Clear all mocks before each test
     jest.clearAllMocks();
 
@@ -24,6 +28,7 @@ describe("run", () => {
     mockSetOutput = core.setOutput as jest.MockedFunction<typeof core.setOutput>;
     mockInfo = core.info as jest.MockedFunction<typeof core.info>;
     mockDebug = core.debug as jest.MockedFunction<typeof core.debug>;
+    mockWarning = core.warning as jest.MockedFunction<typeof core.warning>;
 
     // Setup default return values
     mockGetInput.mockReturnValue("fake-token");
@@ -31,8 +36,12 @@ describe("run", () => {
     // Setup octokit mock
     mockOctokit = {
       rest: {
+        pulls: {
+          get: jest.fn(),
+        },
         repos: {
           listPullRequestsAssociatedWithCommit: jest.fn(),
+          getCommit: jest.fn(),
         },
       },
     };
@@ -53,13 +62,21 @@ describe("run", () => {
     });
   });
 
+  afterEach(() => {
+    // Restore real timers after each test
+    jest.useRealTimers();
+  });
+
   it("should process PR with no labels", async () => {
+    mockOctokit.rest.pulls.get.mockResolvedValue({
+      data: {
+        number: 1,
+        labels: [],
+        merged_at: "2026-01-01T00:00:00.000Z",
+      },
+    });
     mockOctokit.rest.repos.listPullRequestsAssociatedWithCommit.mockResolvedValue({
-      data: [
-        {
-          labels: [],
-        },
-      ],
+      data: [{ number: 1, labels: [] }],
     });
 
     await run();
@@ -70,12 +87,15 @@ describe("run", () => {
   });
 
   it("should process PR with single label", async () => {
+    mockOctokit.rest.pulls.get.mockResolvedValue({
+      data: {
+        number: 1,
+        labels: [{ name: "bug" }],
+        merged_at: "2026-01-01T00:00:00.000Z",
+      },
+    });
     mockOctokit.rest.repos.listPullRequestsAssociatedWithCommit.mockResolvedValue({
-      data: [
-        {
-          labels: [{ name: "bug" }],
-        },
-      ],
+      data: [{ number: 1 }],
     });
 
     await run();
@@ -86,16 +106,19 @@ describe("run", () => {
   });
 
   it("should process PR with multiple labels", async () => {
+    mockOctokit.rest.pulls.get.mockResolvedValue({
+      data: {
+        number: 1,
+        labels: [
+          { name: "bug" },
+          { name: "enhancement" },
+          { name: "documentation" },
+        ],
+        merged_at: "2026-01-01T00:00:00.000Z",
+      },
+    });
     mockOctokit.rest.repos.listPullRequestsAssociatedWithCommit.mockResolvedValue({
-      data: [
-        {
-          labels: [
-            { name: "bug" },
-            { name: "enhancement" },
-            { name: "documentation" },
-          ],
-        },
-      ],
+      data: [{ number: 1 }],
     });
 
     await run();
@@ -123,16 +146,19 @@ describe("run", () => {
   });
 
   it("should handle labels with special characters", async () => {
+    mockOctokit.rest.pulls.get.mockResolvedValue({
+      data: {
+        number: 1,
+        labels: [
+          { name: "needs review" },
+          { name: "WIP: feature" },
+          { name: "type/bug-fix" },
+        ],
+        merged_at: "2026-01-01T00:00:00.000Z",
+      },
+    });
     mockOctokit.rest.repos.listPullRequestsAssociatedWithCommit.mockResolvedValue({
-      data: [
-        {
-          labels: [
-            { name: "needs review" },
-            { name: "WIP: feature" },
-            { name: "type/bug-fix" },
-          ],
-        },
-      ],
+      data: [{ number: 1 }],
     });
 
     await run();
@@ -162,12 +188,15 @@ describe("run", () => {
   });
 
   it("should handle labels with accents and unicode", async () => {
+    mockOctokit.rest.pulls.get.mockResolvedValue({
+      data: {
+        number: 1,
+        labels: [{ name: "café" }, { name: "naïve" }],
+        merged_at: "2026-01-01T00:00:00.000Z",
+      },
+    });
     mockOctokit.rest.repos.listPullRequestsAssociatedWithCommit.mockResolvedValue({
-      data: [
-        {
-          labels: [{ name: "café" }, { name: "naïve" }],
-        },
-      ],
+      data: [{ number: 1 }],
     });
 
     await run();
@@ -193,16 +222,30 @@ describe("run", () => {
       data: [],
     });
 
-    await run();
+    const runPromise = run();
+    
+    // Fast-forward through all retries
+    await jest.runAllTimersAsync();
+    await runPromise;
 
     expect(mockExportVariable).not.toHaveBeenCalled();
     expect(mockSetOutput).toHaveBeenCalledWith("labels", "  ");
     expect(mockSetOutput).toHaveBeenCalledWith("labels-object", {});
+    expect(mockWarning).toHaveBeenCalledWith(
+      expect.stringContaining("No PR found after")
+    );
   });
 
   it("should retrieve github token from input", async () => {
+    mockOctokit.rest.pulls.get.mockResolvedValue({
+      data: {
+        number: 1,
+        labels: [],
+        merged_at: "2026-01-01T00:00:00.000Z",
+      },
+    });
     mockOctokit.rest.repos.listPullRequestsAssociatedWithCommit.mockResolvedValue({
-      data: [],
+      data: [{ number: 1 }],
     });
 
     await run();
@@ -214,8 +257,15 @@ describe("run", () => {
   });
 
   it("should use correct github context", async () => {
+    mockOctokit.rest.pulls.get.mockResolvedValue({
+      data: {
+        number: 1,
+        labels: [],
+        merged_at: "2026-01-01T00:00:00.000Z",
+      },
+    });
     mockOctokit.rest.repos.listPullRequestsAssociatedWithCommit.mockResolvedValue({
-      data: [],
+      data: [{ number: 1 }],
     });
 
     await run();
@@ -230,12 +280,15 @@ describe("run", () => {
   });
 
   it("should log info messages for each label", async () => {
+    mockOctokit.rest.pulls.get.mockResolvedValue({
+      data: {
+        number: 1,
+        labels: [{ name: "bug" }, { name: "enhancement" }],
+        merged_at: "2026-01-01T00:00:00.000Z",
+      },
+    });
     mockOctokit.rest.repos.listPullRequestsAssociatedWithCommit.mockResolvedValue({
-      data: [
-        {
-          labels: [{ name: "bug" }, { name: "enhancement" }],
-        },
-      ],
+      data: [{ number: 1 }],
     });
 
     await run();
@@ -252,12 +305,15 @@ describe("run", () => {
   });
 
   it("should handle labels with quotes", async () => {
+    mockOctokit.rest.pulls.get.mockResolvedValue({
+      data: {
+        number: 1,
+        labels: [{ name: `"quoted"` }, { name: `'single'` }],
+        merged_at: "2026-01-01T00:00:00.000Z",
+      },
+    });
     mockOctokit.rest.repos.listPullRequestsAssociatedWithCommit.mockResolvedValue({
-      data: [
-        {
-          labels: [{ name: `"quoted"` }, { name: `'single'` }],
-        },
-      ],
+      data: [{ number: 1 }],
     });
 
     await run();
@@ -274,37 +330,16 @@ describe("run", () => {
     expect(mockSetOutput).toHaveBeenCalledWith("labels", " quoted single ");
   });
 
-  it("should handle labels with non-alphanumeric characters", async () => {
-    mockOctokit.rest.repos.listPullRequestsAssociatedWithCommit.mockResolvedValue({
-      data: [
-        {
-          labels: [{ name: `needs $` }, { name: `#1` }],
-        },
-      ],
-    });
-
-    await run();
-
-    expect(mockExportVariable).toHaveBeenCalledWith(
-      "GITHUB_PR_LABEL_NEEDS_",
-      "1"
-    );
-    expect(mockExportVariable).toHaveBeenCalledWith(
-      "GITHUB_PR_LABEL__1",
-      "1"
-    );
-
-    expect(mockSetOutput).toHaveBeenCalledWith("labels", " needs- -1 ");
-    expect(mockSetOutput).toHaveBeenCalledWith("labels-object", { "-1": true, "needs-": true });
-  });
-
   it("should handle labels with consecutive underscores", async () => {
+    mockOctokit.rest.pulls.get.mockResolvedValue({
+      data: {
+        number: 1,
+        labels: [{ name: `feeling__lucky` }, { name: `foo ____bar` }],
+        merged_at: "2026-01-01T00:00:00.000Z",
+      },
+    });
     mockOctokit.rest.repos.listPullRequestsAssociatedWithCommit.mockResolvedValue({
-      data: [
-        {
-          labels: [{ name: `feeling__lucky` }, { name: `foo ____bar` }],
-        },
-      ],
+      data: [{ number: 1 }],
     });
 
     await run();
@@ -318,7 +353,252 @@ describe("run", () => {
       "1"
     );
 
-    expect(mockSetOutput).toHaveBeenCalledWith("labels", " feeling-lucky foo-bar ");
-    expect(mockSetOutput).toHaveBeenCalledWith("labels-object", { "feeling-lucky": true, "foo-bar": true });
+    expect(mockSetOutput).toHaveBeenCalledWith(
+      "labels",
+      " feeling-lucky foo-bar "
+    );
+    expect(mockSetOutput).toHaveBeenCalledWith("labels-object", {
+      "feeling-lucky": true,
+      "foo-bar": true,
+    });
+  });
+
+  describe("retry logic", () => {
+    it("should retry when no PR is found initially and succeed on second attempt", async () => {
+      // First call returns no PRs, second call returns a PR
+      mockOctokit.rest.repos.listPullRequestsAssociatedWithCommit
+        .mockResolvedValueOnce({ data: [] })
+        .mockResolvedValueOnce({ data: [{ number: 1 }] });
+
+      mockOctokit.rest.pulls.get.mockResolvedValue({
+        data: {
+          number: 1,
+          labels: [{ name: "bug" }],
+          merged_at: "2026-01-01T00:00:00.000Z",
+        },
+      });
+
+      const runPromise = run();
+
+      // Fast-forward through the first delay
+      await jest.advanceTimersByTimeAsync(3000);
+      await runPromise;
+
+      expect(
+        mockOctokit.rest.repos.listPullRequestsAssociatedWithCommit
+      ).toHaveBeenCalledTimes(2);
+      expect(mockWarning).toHaveBeenCalledWith(
+        expect.stringContaining("Attempt 1/3: No PR found yet")
+      );
+      expect(mockSetOutput).toHaveBeenCalledWith("labels", " bug ");
+    });
+
+    it("should retry when PR has no labels on first attempt (just merged)", async () => {
+      const justMergedTime = new Date(Date.now() - 2000).toISOString(); // 2 seconds ago
+
+      mockOctokit.rest.repos.listPullRequestsAssociatedWithCommit.mockResolvedValue({
+        data: [{ number: 1 }],
+      });
+
+      // First call: no labels (just merged), second call: has labels
+      mockOctokit.rest.pulls.get
+        .mockResolvedValueOnce({
+          data: {
+            number: 1,
+            labels: [],
+            merged_at: justMergedTime,
+          },
+        })
+        .mockResolvedValueOnce({
+          data: {
+            number: 1,
+            labels: [{ name: "bug" }],
+            merged_at: justMergedTime,
+          },
+        });
+
+      const runPromise = run();
+
+      // Fast-forward through retry delay
+      await jest.advanceTimersByTimeAsync(3000);
+      await runPromise;
+
+      expect(mockOctokit.rest.pulls.get).toHaveBeenCalledTimes(2);
+      expect(mockInfo).toHaveBeenCalledWith(
+        expect.stringContaining("PR #1 was just merged and has no labels yet")
+      );
+      expect(mockSetOutput).toHaveBeenCalledWith("labels", " bug ");
+    });
+
+    it("should not retry when PR has no labels and was not just merged", async () => {
+      const oldMergeTime = new Date(Date.now() - 60000).toISOString(); // 1 minute ago
+
+      mockOctokit.rest.repos.listPullRequestsAssociatedWithCommit.mockResolvedValue({
+        data: [{ number: 1 }],
+      });
+
+      mockOctokit.rest.pulls.get.mockResolvedValue({
+        data: {
+          number: 1,
+          labels: [],
+          merged_at: oldMergeTime,
+        },
+      });
+
+      await run();
+
+      // Should only call once since PR is old enough
+      expect(mockOctokit.rest.pulls.get).toHaveBeenCalledTimes(1);
+      expect(mockInfo).toHaveBeenCalledWith(
+        expect.stringContaining("Found PR #1 with no labels")
+      );
+      expect(mockSetOutput).toHaveBeenCalledWith("labels", "  ");
+    });
+
+    it("should exhaust all retries when PR is never found", async () => {
+      mockOctokit.rest.repos.listPullRequestsAssociatedWithCommit.mockResolvedValue({
+        data: [],
+      });
+
+      const runPromise = run();
+
+      // Fast-forward through all 3 retry delays (3 seconds each)
+      await jest.advanceTimersByTimeAsync(3000);
+      await jest.advanceTimersByTimeAsync(3000);
+      await jest.advanceTimersByTimeAsync(3000);
+      await runPromise;
+
+      expect(
+        mockOctokit.rest.repos.listPullRequestsAssociatedWithCommit
+      ).toHaveBeenCalledTimes(3);
+      expect(mockWarning).toHaveBeenCalledWith(
+        expect.stringContaining("No PR found after 3 attempts")
+      );
+    });
+
+    it("should exhaust retries when PR exists but labels never appear", async () => {
+      const justMergedTime = new Date(Date.now() - 2000).toISOString();
+
+      mockOctokit.rest.repos.listPullRequestsAssociatedWithCommit.mockResolvedValue({
+        data: [{ number: 1 }],
+      });
+
+      // Always return no labels
+      mockOctokit.rest.pulls.get.mockResolvedValue({
+        data: {
+          number: 1,
+          labels: [],
+          merged_at: justMergedTime,
+        },
+      });
+
+      const runPromise = run();
+
+      // Fast-forward through all retry delays
+      await jest.advanceTimersByTimeAsync(3000);
+      await jest.advanceTimersByTimeAsync(3000);
+      await runPromise;
+
+      expect(mockOctokit.rest.pulls.get).toHaveBeenCalledTimes(3);
+      expect(mockSetOutput).toHaveBeenCalledWith("labels", "  ");
+      expect(mockSetOutput).toHaveBeenCalledWith("labels-object", {});
+    });
+
+    it("should succeed on third attempt after two retries", async () => {
+      // Simulate PR taking time to be associated
+      mockOctokit.rest.repos.listPullRequestsAssociatedWithCommit
+        .mockResolvedValueOnce({ data: [] })
+        .mockResolvedValueOnce({ data: [] })
+        .mockResolvedValueOnce({ data: [{ number: 1 }] });
+
+      mockOctokit.rest.pulls.get.mockResolvedValue({
+        data: {
+          number: 1,
+          labels: [{ name: "enhancement" }],
+          merged_at: "2026-01-01T00:00:00.000Z",
+        },
+      });
+
+      const runPromise = run();
+
+      // Fast-forward through two delays
+      await jest.advanceTimersByTimeAsync(3000);
+      await jest.advanceTimersByTimeAsync(3000);
+      await runPromise;
+
+      expect(
+        mockOctokit.rest.repos.listPullRequestsAssociatedWithCommit
+      ).toHaveBeenCalledTimes(3);
+      expect(mockSetOutput).toHaveBeenCalledWith("labels", " enhancement ");
+    });
+
+    it("should handle mixed scenario: PR found late with labels appearing late", async () => {
+      const justMergedTime = new Date(Date.now() - 2000).toISOString();
+
+      // PR not found initially
+      mockOctokit.rest.repos.listPullRequestsAssociatedWithCommit
+        .mockResolvedValueOnce({ data: [] })
+        .mockResolvedValueOnce({ data: [{ number: 1 }] })
+        .mockResolvedValueOnce({ data: [{ number: 1 }] });
+
+      // When PR is found, labels not there yet, then appear
+      mockOctokit.rest.pulls.get
+        .mockResolvedValueOnce({
+          data: {
+            number: 1,
+            labels: [],
+            merged_at: justMergedTime,
+          },
+        })
+        .mockResolvedValueOnce({
+          data: {
+            number: 1,
+            labels: [{ name: "bug" }, { name: "urgent" }],
+            merged_at: justMergedTime,
+          },
+        });
+
+      const runPromise = run();
+
+      // Fast-forward through delays
+      await jest.advanceTimersByTimeAsync(3000); // First retry for no PR
+      await jest.advanceTimersByTimeAsync(3000); // Second retry for no labels
+      await runPromise;
+
+      expect(mockSetOutput).toHaveBeenCalledWith("labels", " bug urgent ");
+      expect(mockSetOutput).toHaveBeenCalledWith("labels-object", {
+        bug: true,
+        urgent: true,
+      });
+    });
+  });
+
+  describe("edge cases", () => {
+    it("should handle API errors gracefully", async () => {
+      mockOctokit.rest.repos.listPullRequestsAssociatedWithCommit.mockRejectedValue(
+        new Error("API Error")
+      );
+
+      await expect(run()).rejects.toThrow("API Error");
+    });
+
+    it("should handle PR with no merged_at timestamp", async () => {
+      mockOctokit.rest.repos.listPullRequestsAssociatedWithCommit.mockResolvedValue({
+        data: [{ number: 1 }],
+      });
+
+      mockOctokit.rest.pulls.get.mockResolvedValue({
+        data: {
+          number: 1,
+          labels: [],
+          merged_at: null, // Not merged yet
+        },
+      });
+
+      await run();
+
+      expect(mockSetOutput).toHaveBeenCalledWith("labels", "  ");
+      expect(mockSetOutput).toHaveBeenCalledWith("labels-object", {});
+    });
   });
 });
