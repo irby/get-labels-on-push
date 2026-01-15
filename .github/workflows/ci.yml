@@ -2,8 +2,6 @@ name: CI Checks
 
 on:
   pull_request:
-  push:
-    - main
 
 jobs:
   unit-test:
