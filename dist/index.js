@@ -57,20 +57,58 @@ async function run() {
     core.setOutput('labels-object', labelsObject);
 }
 exports.run = run;
-async function getPullRequestLabelNames(octokit) {
+async function getPullRequestLabelNames(octokit, maxRetries = 3, delayMs = 1500 // Default 1.5 seconds delay
+) {
     const owner = github.context.repo.owner;
     const repo = github.context.repo.repo;
     const commit_sha = github.context.sha;
-    core.debug(`PR context - Owner: ${owner} Repo: ${repo} Commit_SHA: ${commit_sha}`);
-    const response = await octokit.rest.repos.listPullRequestsAssociatedWithCommit({
-        owner,
-        repo,
-        commit_sha,
-    });
-    core.debug(`Retrieved commit data: ${response.data}`);
-    const pr = response.data.length > 0 && response.data[0];
-    core.debug(`Retrieved PR: ${pr}`);
-    return pr ? pr.labels.map((label) => label.name || "") : [];
+    core.info(`Looking for PR associated with commit ${commit_sha.substring(0, 7)}`);
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        core.debug(`Attempt ${attempt} to read PR labels from commit ${commit_sha}...`);
+        const response = await octokit.rest.repos.listPullRequestsAssociatedWithCommit({
+            owner,
+            repo,
+            commit_sha,
+        });
+        if (response.data.length > 0) {
+            const pr = response.data[0];
+            // Get full PR details to check if it's fully loaded
+            const { data: fullPR } = await octokit.rest.pulls.get({
+                owner,
+                repo,
+                pull_number: pr.number,
+            });
+            const labels = fullPR.labels.map((label) => label.name || "");
+            const mergedAt = fullPR.merged_at ? new Date(fullPR.merged_at) : null;
+            const now = new Date();
+            // Check if PR was just merged (within last 10 seconds)
+            const justMerged = mergedAt && (now.getTime() - mergedAt.getTime()) < 10000;
+            if (labels.length > 0) {
+                // We have labels - we're good!
+                core.info(`✓ Found PR #${pr.number} with labels: ${labels.join(', ')}`);
+                return labels;
+            }
+            else if (justMerged && attempt < maxRetries) {
+                // PR just merged and has no labels - might be a timing issue
+                core.info(`PR #${pr.number} was just merged and has no labels yet. Retrying...`);
+                await new Promise(resolve => setTimeout(resolve, delayMs));
+                continue;
+            }
+            else {
+                // Either:
+                // 1. PR genuinely has no labels
+                // 2. PR is old enough that labels should be loaded
+                core.info(`✓ Found PR #${pr.number} with no labels`);
+                return [];
+            }
+        }
+        if (attempt < maxRetries) {
+            core.warning(`Attempt ${attempt}/${maxRetries}: No PR found yet, waiting ${delayMs}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+    }
+    core.warning(`⚠ No PR found after ${maxRetries} attempts. This might be a direct push to main.`);
+    return [];
 }
 function nameToIdentifier(name) {
     return name
