@@ -7,8 +7,8 @@
   "license": "MIT",
   "dependencies": {
     "@actions/core": "^1.11.1",
-    "@actions/github": "^5.1.1",
     "lodash": "^4.17.23"
+    "@actions/github": "^7.0.0",
   },
   "paths": {
     "@package": [
