@@ -1,34 +1,47 @@
-import * as core from "@actions/core";
-import * as github from "@actions/github";
-import { run } from "./index";
+import { jest, describe, it, expect, beforeEach, afterEach } from "@jest/globals";
 
-// Mock the modules
-jest.mock("@actions/core");
-jest.mock("@actions/github");
+// Create mock functions up front so they can be configured in beforeEach
+const mockGetInput = jest.fn();
+const mockExportVariable = jest.fn();
+const mockSetOutput = jest.fn();
+const mockInfo = jest.fn();
+const mockDebug = jest.fn();
+const mockWarning = jest.fn();
+const mockGetOctokit = jest.fn();
+
+// In ESM mode, mocks must be registered before importing the module under test
+await jest.unstable_mockModule("@actions/core", () => ({
+  getInput: mockGetInput,
+  exportVariable: mockExportVariable,
+  setOutput: mockSetOutput,
+  info: mockInfo,
+  debug: mockDebug,
+  warning: mockWarning,
+}));
+
+await jest.unstable_mockModule("@actions/github", () => ({
+  getOctokit: mockGetOctokit,
+  context: {
+    repo: {
+      owner: "test-owner",
+      repo: "test-repo",
+    },
+    sha: "abc123",
+  },
+}));
+
+// Dynamic import after mocks are registered
+const { run } = await import("./index.js");
 
 describe("run", () => {
   let mockOctokit: any;
-  let mockGetInput: jest.SpiedFunction<typeof core.getInput>;
-  let mockExportVariable: jest.SpiedFunction<typeof core.exportVariable>;
-  let mockSetOutput: jest.SpiedFunction<typeof core.setOutput>;
-  let mockInfo: jest.SpiedFunction<typeof core.info>;
-  let mockDebug: jest.SpiedFunction<typeof core.debug>;
-  let mockWarning: jest.SpiedFunction<typeof core.warning>;
 
   beforeEach(() => {
     // Use fake timers
     jest.useFakeTimers();
-    
+
     // Clear all mocks before each test
     jest.clearAllMocks();
-
-    // Setup core mocks
-    mockGetInput = core.getInput as jest.MockedFunction<typeof core.getInput>;
-    mockExportVariable = core.exportVariable as jest.MockedFunction<typeof core.exportVariable>;
-    mockSetOutput = core.setOutput as jest.MockedFunction<typeof core.setOutput>;
-    mockInfo = core.info as jest.MockedFunction<typeof core.info>;
-    mockDebug = core.debug as jest.MockedFunction<typeof core.debug>;
-    mockWarning = core.warning as jest.MockedFunction<typeof core.warning>;
 
     // Setup default return values
     mockGetInput.mockReturnValue("fake-token");
@@ -46,20 +59,7 @@ describe("run", () => {
       },
     };
 
-    (github.getOctokit as jest.MockedFunction<typeof github.getOctokit>)
-      .mockReturnValue(mockOctokit as any);
-
-    // Setup github context mock
-    Object.defineProperty(github, "context", {
-      value: {
-        repo: {
-          owner: "test-owner",
-          repo: "test-repo",
-        },
-        sha: "abc123",
-      },
-      configurable: true,
-    });
+    mockGetOctokit.mockReturnValue(mockOctokit);
   });
 
   afterEach(() => {
@@ -223,7 +223,7 @@ describe("run", () => {
     });
 
     const runPromise = run();
-    
+
     // Fast-forward through all retries
     await jest.runAllTimersAsync();
     await runPromise;
@@ -253,7 +253,7 @@ describe("run", () => {
     expect(mockGetInput).toHaveBeenCalledWith("github-token", {
       required: true,
     });
-    expect(github.getOctokit).toHaveBeenCalledWith("fake-token");
+    expect(mockGetOctokit).toHaveBeenCalledWith("fake-token");
   });
 
   it("should use correct github context", async () => {

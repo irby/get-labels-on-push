@@ -1,7 +1,7 @@
 import * as core from "@actions/core";
 import * as github from "@actions/github";
 import { GitHub } from "@actions/github/lib/utils";
-import _deburr from 'lodash/deburr';
+import _lodash from 'lodash';
 
 export async function run() {
   core.debug("Start");
@@ -105,7 +105,7 @@ function nameToIdentifier(name: string) {
 
 function nameToEnvironmentVariableName(name: string) {
     return 'GITHUB_PR_LABEL_' + (
-        _deburr(name)  // remove accents
+        _lodash.deburr(name)  // remove accents
             .replace(/['"“‘”’]+/gu, '')  // remove quotes
             .replace(/[^\w]+/g, '_')  // non-alphanum to underscores
             .replace(/_+/g, '_')  // remove consecutive underscores
