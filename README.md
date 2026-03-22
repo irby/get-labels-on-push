@@ -41,7 +41,7 @@ jobs:
       # kebab-case label names, surrounded by spaces.
       - run: |
           scripts/release-major.sh
-        if: contains(steps.pr-labels.outputs.labels, ' release-major ')
+        if: contains(steps.pr-labels.outputs.labels, ' release-master ')
 ```
 
 ### Previous Versions of GitHub Action
